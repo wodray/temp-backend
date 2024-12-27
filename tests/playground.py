@@ -1,13 +1,7 @@
-import sys
-import time
 from datetime import datetime
 
-sys.path.append("C:\\dev\\py\\temp-backend\\src")
-
-from sqlalchemy import DateTime, String, func, text
+from sqlalchemy import DateTime, String, create_engine, func, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
-
-from database import engine
 
 
 class Base(DeclarativeBase):
@@ -30,6 +24,7 @@ class Item(Base):
     )
 
 
+engine = create_engine("sqlite://", connect_args={"check_same_thread": False})
 Base.metadata.create_all(engine)
 
 Session = sessionmaker(bind=engine)
@@ -48,3 +43,16 @@ session.refresh(i1)
 # i1.name = "jack"
 # session.commit()
 session.close()
+
+if __name__ == "__main__":
+    import uuid
+
+    from sqlmodel import Field, SQLModel
+
+    class Hero(SQLModel, table=True):
+        id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+        name: str = Field(index=True)
+        secret_name: str
+        age: int | None = Field(default=None, index=True)
+
+    h = Hero(name="", secret_name="")

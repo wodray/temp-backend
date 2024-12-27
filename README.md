@@ -1,5 +1,7 @@
 # backend
 
+脚本在哪里，导入查找的路径（`sys.path`）就从哪里开始
+
 ## Alembic
 
 创建迁移环境
@@ -105,13 +107,133 @@ alembic downgrade base
 
 ## SQLAlchemy/SQLModel
 
-- 字段/列的默认值配置：
-  - default: 在 Python 端处理，适用于需要在应用程序逻辑中控制默认值的场景。
-  - server_default: 在数据库端处理，适用于需要依赖数据库的默认值（如数据库触发器、序列等）的场景。
+由于 SQLModel 类模型既是 SQLAlchemy 模型，也是 Pydantic 模型。所以可以使用相同的模型来定义 API 将接收的 request body。模型（Pydantic 部分）将进行自动数据验证，并把 JSON 请求转换为 Hero 类实际实例的对象。然后，由于这个相同的 SQLModel 对象不仅是 Pydantic 模型实例，也是 SQLAlchemy 模型实例，因此我们可以在 session 中直接使用它在数据库中创建行。（不适用于所有情况）
 
-- 模型类属性、和实例：
+```python
+@app.post("/heroes/", response_model=Hero)
+def create_hero(hero: Hero):
+    with Session(engine) as session:
+        session.add(hero)
+        session.commit()
+        session.refresh(hero)
+        return hero
+```
 
-  每个列/字段的模型类属性都很特殊，可用于表达式。但这只适用于模型类属性。实例属性的行为与普通Python 值相同。
+这样，我们可以使用直观的标准 Python 类型注解，而不必为数据库模型和 API 数据模型重复编写大量代码。
+
+何时使用模型继承法则：
+
+- 仅从 data model 继承
+  
+  只从 data model 继承，不从 table model 继承。这将帮助您避免混淆，而且您也没有任何理由需要从 table model 继承。
+
+  如果您觉得需要从 table model 继承，那么请创建一个 基类，该类仅是一个 data model，并拥有所有这些字段，如 HeroBase 类。
+
+  然后从该 base 类继承，该类对于任何其他 data model 和 table model 来说，都只是一个 data model。
+
+- 避免重复 - 保持简单
+  
+  如果为了避免一些重复，你最终会得到一棵疯狂的具有继承性的模型树，那么更简单的做法可能是复制其中的一些字段，这样可能更容易推理和维护。
+
+  总之，做任何更容易推理、编程、维护和重构的事情。
+
+> 定义模型时，`table=True` 的是表模型，没有的是数据模型
+
+字段/列的默认值配置：
+
+- default: 在 Python 端处理，适用于需要在应用程序逻辑中控制默认值的场景。
+- server_default: 在数据库端处理，适用于需要依赖数据库的默认值（如数据库触发器、序列等）的场景。
+
+模型类属性、和实例：每个列/字段的模型类属性都很特殊，可用于表达式。但这只适用于模型类属性。实例属性的行为与普通Python 值相同。
+
+### 关系
+
+- 关系配置
+  - 只要在 当前模型中，该行就与当前模型有关。
+  - 属性名称是关于 other 模型的。
+  - 类型注释是关于 other 模型的。
+  - 而 back_populates 指的是 other 模型中的一个属性，该属性指向当前模型。
+
+- `Relationship()` 中的 `back_populates` 参数是什么？
+  
+  这会告诉 SQLModel，如果此模型中的内容发生变化，它就会在另一个模型中更改该属性，甚至在提交会话（这将强制刷新数据）之前也会这样做。
+
+- 关系在 Python 侧删除被外键引用的记录的默认行为是：SQLModel（实际上是 SQLAlchemy）将访问包含外键的记录，并将外键列设为 NULL。
+
+- 如果您知道您的数据库能够自行正确处理删除或更新，只需使用 `ondelete="CASCADE"` 或 `ondelete="SET NULL"` 即可、您可以在 `Relationship()` 中使用 `passive_deletes="all"` 来告诉 SQLModel（实际上是 SQLAlchemy），在为被外键引用的表发送 DELETE 之前， 不要删除或更新这些记录（对于含外键表）。
+
+- 在某些情况下，如果您想自动级联删除一条记录到其相关记录（删除一个团队及其英雄），您可以这样做：
+  - 在无外键一侧的`Relationship()`中使用`cascade_delete=True`。
+  - 并在 `Field()` 中使用 `ondelete="CASCADE"` 和 Foreign key 。
+
+- 配置在有相关记录（Hero）的情况下防止删除记录（Team）：
+  - 在模型表 Hero 中的 `Field()` 外键 team_id 中设置 `ondelete="RESTRICT"` 。
+  - 在 Team 模型表中，在 Hero 的 `Relationship()` 中使用 `passive_deletes="all"`，这样，将删除模型的外键设置为 NULL 的默认行为将被禁用，当我们尝试删除一个包含 Hero 的 Team 时，数据库将引发错误。
+
+#### 多对多关系
+
+通过增加一个中间层即关联模型实现：
+
+```python
+# 不需要直接与 HeroTeamLink 模型交互，而是通过自动的多对多关系进行交互。
+class HeroTeamLink(SQLModel, table=True):
+    team_id: int | None = Field(default=None, foreign_key="team.id", primary_key=True)
+    hero_id: int | None = Field(default=None, foreign_key="hero.id", primary_key=True)
+
+class Team(SQLModel, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    name: str = Field(index=True)
+    headquarters: str
+
+    heroes: list["Hero"] = Relationship(back_populates="teams", link_model=HeroTeamLink)
+
+class Hero(SQLModel, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    name: str = Field(index=True)
+    secret_name: str
+    age: int | None = Field(default=None, index=True)
+
+    teams: list[Team] = Relationship(back_populates="heroes", link_model=HeroTeamLink)
+```
+
+带有额外字段的链接模型
+
+如果我们需要额外的数据来描述两个模型之间的联系呢？比方说，我们希望有一个额外的字段/列来说明某个英雄是否仍在该团队中接受训练，或者他们是否已经开始执行任务等。
+
+处理方法是显式使用链接模型，以便能够获取和修改其数据（除了指向 Hero 和 Team 两个模型的外键）。最终，它的工作方式就像两个 一对多关系的组合。
+
+```python
+class HeroTeamLink(SQLModel, table=True):
+    team_id: int | None = Field(default=None, foreign_key="team.id", primary_key=True)
+    hero_id: int | None = Field(default=None, foreign_key="hero.id", primary_key=True)
+    is_training: bool = False
+
+    team: "Team" = Relationship(back_populates="hero_links")
+    hero: "Hero" = Relationship(back_populates="team_links")
+
+
+class Team(SQLModel, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    name: str = Field(index=True)
+    headquarters: str
+
+    hero_links: list[HeroTeamLink] = Relationship(back_populates="team")
+
+
+class Hero(SQLModel, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    name: str = Field(index=True)
+    secret_name: str
+    age: int | None = Field(default=None, index=True)
+
+    team_links: list[HeroTeamLink] = Relationship(back_populates="hero")
+
+# 此时要手动创建 显式链接模型，指向其英雄和团队实例，并指定附加链接数据
+deadpond_team_z_link = HeroTeamLink(team=team_z_force, hero=hero_deadpond)
+deadpond_preventers_link = HeroTeamLink(team=team_preventers, hero=hero_deadpond,is_training=True)
+```
+
+在 `model.model_validate()` 中使用 update 参数，以便在创建新对象时提供额外数据，以及在更新现有对象时使用 `model.sqlmodel_update()` 参数，以便提供额外数据。
 
 ## 参考
 
