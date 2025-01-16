@@ -249,3 +249,4 @@ deadpond_preventers_link = HeroTeamLink(team=team_preventers, hero=hero_deadpond
 - [TIMESTAMP 和 DATETIME 的自动初始化和更新](https://dev.mysql.com/doc/refman/8.4/en/timestamp-initialization.html)
 - [Argon2 for Python](https://argon2-cffi.readthedocs.io/en/stable/index.html)
 - [PyJWT](https://pyjwt.readthedocs.io/en/stable/index.html)
+- [Redis Python client](https://github.com/redis/redis-py)
