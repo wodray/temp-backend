@@ -237,6 +237,7 @@ deadpond_preventers_link = HeroTeamLink(team=team_preventers, hero=hero_deadpond
 
 ## 参考
 
+- [源码](https://gitee.com/Barry_Python_web/python_web_code)
 - [FastAPI](https://fastapi.tiangolo.com/)
 - [SQLModel](https://sqlmodel.tiangolo.com/)
 - [Pydantic](https://docs.pydantic.dev/latest/)
@@ -246,3 +247,5 @@ deadpond_preventers_link = HeroTeamLink(team=team_preventers, hero=hero_deadpond
 - [How to Use Alembic for Database Migrations in Your FastAPI Application](https://www.nashruddinamin.com/blog/how-to-use-alembic-for-database-migrations-in-your-fastapi-application)
 - [MySQL时区的查看和设置](https://blog.csdn.net/leo3070/article/details/118146780)
 - [TIMESTAMP 和 DATETIME 的自动初始化和更新](https://dev.mysql.com/doc/refman/8.4/en/timestamp-initialization.html)
+- [Argon2 for Python](https://argon2-cffi.readthedocs.io/en/stable/index.html)
+- [PyJWT](https://pyjwt.readthedocs.io/en/stable/index.html)

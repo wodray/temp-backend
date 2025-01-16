@@ -1,5 +1,6 @@
 from typing import Annotated
 
+import redis
 from fastapi import Depends
 from sqlalchemy import URL
 from sqlmodel import Session, SQLModel, create_engine
@@ -8,11 +9,11 @@ from config import settings
 
 url_object = URL.create(
     drivername="mysql",
-    username=settings.db_user,
-    password=settings.db_password,
-    host=settings.db_host,
-    port=settings.db_port,
-    database=settings.db_database,
+    username=settings.mysql_user,
+    password=settings.mysql_password,
+    host=settings.mysql_host,
+    port=settings.mysql_port,
+    database=settings.mysql_database,
 )
 
 
@@ -30,5 +31,11 @@ def get_session():
 
 SessionDep = Annotated[Session, Depends(get_session)]
 
-if __name__ == "__main__":
-    print(url_object.render_as_string(False))
+redis_client = redis.Redis(
+    host=settings.redis_host,
+    port=settings.redis_port,
+    password=settings.redis_password,
+    db=0,
+    protocol=3,
+    decode_responses=True,
+)

@@ -2,17 +2,21 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-import config
+from auth.router import router
+from config import logger
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    logger.info("startup")
     # startup
     yield
     # shutdown
+    logger.info("shutdown")
 
 
 app = FastAPI(lifespan=lifespan)
+app.include_router(router)
 
 
 @app.get("/")

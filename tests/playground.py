@@ -25,28 +25,29 @@ class Item(Base):
 
 
 engine = create_engine("sqlite://", connect_args={"check_same_thread": False})
-Base.metadata.create_all(engine)
+# Base.metadata.create_all(engine)
 
 Session = sessionmaker(bind=engine)
-session = Session()
+# session = Session()
 
-i1 = Item(name="n")
-print("->", i1.created_at)
+# i1 = Item(name="n")
+# print("->", i1.created_at)
 
-session.add(i1)
+# session.add(i1)
 
 
-session.commit()
-session.refresh(i1)
+# session.commit()
+# session.refresh(i1)
 # print("->", i1.created_at)
 # time.sleep(10)
 # i1.name = "jack"
 # session.commit()
-session.close()
+# session.close()
 
 if __name__ == "__main__":
     import uuid
 
+    from pydantic import BaseModel, ConfigDict
     from sqlmodel import Field, SQLModel
 
     class Hero(SQLModel, table=True):
@@ -54,5 +55,8 @@ if __name__ == "__main__":
         name: str = Field(index=True)
         secret_name: str
         age: int | None = Field(default=None, index=True)
+        last_login: datetime = Field(default_factory=datetime.now)
 
     h = Hero(name="", secret_name="")
+
+    print(h)

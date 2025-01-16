@@ -6,10 +6,14 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "alembic>=1.14.0",
+    "argon2-cffi>=23.1.0",
+    "captcha>=0.6.0",
     "fastapi[standard]>=0.115.6",
     "loguru>=0.7.3",
     "mysqlclient>=2.2.6",
     "pydantic-settings>=2.7.0",
+    "pyjwt[crypto]>=2.10.1",
+    "redis[hiredis]>=5.2.1",
     "sqlmodel>=0.0.22",
 ]
 
